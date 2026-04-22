@@ -2,6 +2,7 @@ const isProduction = process.env.NODE_ENV === 'production';
 
 export const app_config = {
     domain: isProduction ? 'yourdomain.com' : 'localhost',
+    domain_email: 'email.com',
 
 
     // computed properties for the access and refresh token expiration dates

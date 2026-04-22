@@ -1,6 +1,7 @@
 import * as argon2 from 'argon2';
 import { injectable } from 'inversify';
 
+import { app_config } from '../configs/app.config';
 import { IUser } from '../model/user-model';
 
 
@@ -10,15 +11,21 @@ export class UserService {
     public generateUsername({
         first_name, 
         last_name, 
-        domain='email.com'
+        domain=app_config.domain_email
     }: {
         first_name: string;
         last_name: string;
         domain?: string;
     }) {
 
-        const firstThreeLettersFname = first_name.substring(0, 3).toLowerCase();
-        const finalUsername = `${firstThreeLettersFname}${last_name}@${domain}`;
+        const last_name_lowercase = last_name?.toLowerCase();
+        const first_name_lowercase = first_name?.toLowerCase();
+        const firstNameTrimmed = first_name_lowercase?.trim();
+        const firstNameJoined = firstNameTrimmed?.split(' ')?.join('');
+        const firstThreeLettersFname = firstNameJoined?.substring(0, 3).toLowerCase();
+
+
+        const finalUsername = `${firstThreeLettersFname}${last_name_lowercase}@${domain}`;
         return finalUsername;
     }
 
