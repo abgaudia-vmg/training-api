@@ -2,7 +2,10 @@ import { Request, Response } from 'express';
 import { inject } from 'inversify';
 import { controller, httpDelete, httpGet, httpPost, httpPut } from 'inversify-express-utils';
 
+import { app_config } from '../configs/app.config';
 import { AuthenticationMiddleware } from '../middleware/authentication.middleware';
+import { ITodo } from '../model/todo-model';
+import { AuthGatewayService } from '../services/auth-gateway-service';
 import { TodoGatewayService } from '../services/todo-gateway-service';
 import { TodoService } from '../services/todo-service';
 import { UserGatewayService } from '../services/user-gateway-service';
@@ -14,6 +17,7 @@ export class TodoController {
         @inject(TodoGatewayService) private TodoGatewayService: TodoGatewayService,
         @inject(UserGatewayService) private UserGatewayService: UserGatewayService,
         @inject(TodoService) private todoService: TodoService,
+        @inject(AuthGatewayService) private AuthGatewayService: AuthGatewayService,
     ) { }
 
 
@@ -104,6 +108,14 @@ export class TodoController {
     public async createTodo(req: Request, res: Response) {
         try{
 
+
+            // get the user data from the session
+            const sessionId = req.cookies?.[app_config.actoCookie] || req.headers.session;
+            const userData = await this.AuthGatewayService.getSessionEntry(sessionId);
+            const userId = userData?.user?._id;
+            const userRole = userData?.user?.user_type;
+
+
             const todoData = req.body;
             if(!todoData) {
                 return res.status(400).json({
@@ -113,13 +125,25 @@ export class TodoController {
                 });
             }
             
-            if(!todoData.assigned_to) {
-                return res.status(400).json({
-                    success:false,
-                    payload: todoData,
-                    message: 'Unable to create todo, no user assigned to the todo.'
-                });
+
+            // set the created by field to the user id
+            todoData.created_by = userId;
+
+            // if the user is a staff, automatically assign the todo to the user
+            if(userRole === 'staff') {
+                todoData.assigned_to = userId;
             }
+
+      
+            // if(!todoData.assigned_to) {
+            //     return res.status(400).json({
+            //         success:false,
+            //         payload: todoData,
+            //         message: 'Unable to create todo, no user assigned to the todo.'
+            //     });
+            // }
+
+
             const todo = await this.TodoGatewayService.createTodo(todoData);
       
 
@@ -127,6 +151,7 @@ export class TodoController {
                 success: true,
                 message: 'Todo created successfullysss',
                 data: todo,
+                userRole
             });
         } catch (error: any) {
             return res.status(500).json({
@@ -141,9 +166,8 @@ export class TodoController {
     public async updateTodo(req: Request, res: Response) {
         try{
             const todoId = req.params.id;
-            const todoData = req.body;
+            const todoData = req.body as Partial<ITodo>;
             if(!todoId || !todoData) {
-
                 return res.status(400).json({
                     success: false,
                     message: 'Failed to update todo, no data received',
@@ -152,7 +176,12 @@ export class TodoController {
             }
 
 
-            const updatedTodo = await this.TodoGatewayService.updateTodo({todo_id: todoId, todo_data: todoData });
+            //exclude from updates
+            delete todoData.created_by;
+            delete todoData.created_at;
+
+
+            const updatedTodo = await this.TodoGatewayService.updateTodo({todo_id: todoId, todo_data: todoData as ITodo });
             return res.status(200).json({
                 success: true,
                 message: 'Todo updated successfully',

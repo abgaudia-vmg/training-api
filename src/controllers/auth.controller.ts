@@ -15,6 +15,7 @@ export class AuthController {
     private domain = app_config.domain;
     private accessTokenExp = app_config.accessTokenExp;
     private refreshTokenExp = app_config.refreshTokenExp;
+    private cookieOptions = app_config.cookieOptions;
     private get actoCookie(): string { return app_config.actoCookie; }
     private get retoCookie(): string { return app_config.retoCookie; }
 
@@ -141,8 +142,7 @@ export class AuthController {
             res.cookie(this.actoCookie, validationResult.data.new_access_token, {
                 httpOnly: true,
                 expires: this.accessTokenExp,
-                sameSite: 'none',
-                secure: true,
+                ...this.cookieOptions,
                 domain: this.domain,
             });
 
@@ -150,8 +150,7 @@ export class AuthController {
             res.cookie(this.retoCookie, validationResult.data.new_session_entry.session_id, {
                 httpOnly: true,
                 expires: this.refreshTokenExp,
-                sameSite: 'none',
-                secure: true,
+                ...this.cookieOptions,
                 domain: this.domain,
             });
 
@@ -243,16 +242,14 @@ export class AuthController {
             res.cookie(this.actoCookie, generated_access_token, {
                 httpOnly: true,
                 expires: this.accessTokenExp,
-                sameSite: 'none',
-                secure: true,
+                ...this.cookieOptions,
                 domain: this.domain,
             });
 
             res.cookie(this.retoCookie, generated_session.session_id, {
                 httpOnly: true,
                 expires: this.refreshTokenExp,
-                sameSite: 'none',
-                secure: true,
+                ...this.cookieOptions,
                 domain: this.domain,
             });
 
