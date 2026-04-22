@@ -125,6 +125,8 @@ export class AuthController {
             const accessToken = req.cookies?.[this.actoCookie] || this.AuthService.extractBearerToken(req.headers.authorization!);
             const sessionId = req.cookies?.[this.retoCookie] || req.headers.session;
            
+            console.log('actoCookie', req.cookies );
+            
             const validationResult = await this.AuthService.validateSession({
                 access_token: accessToken,
                 session_id: sessionId
@@ -198,18 +200,34 @@ export class AuthController {
     public async login(req: Request, res: Response): Promise<any> {
         try {
 
-            if(!req.body || !req.body.email || !req.body.password) {
+            if(!req.body || (!req.body.email && !req.body.username) || !req.body.password) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Failed to login, no email or password provided.',
+                    message: 'Failed to login, no email or username or password provided.',
                 });
             }
 
             const payload = req.body;
+            const username = payload?.username as string;
             const email = payload?.email as string;
             const password = payload?.password as string;
+            let user = null;
+            if(username) {
+                user = await this.UserGatewayService.getUserByUsername(username);
+            } 
+            
+            if(email) {
+                user = await this.UserGatewayService.getUserByEmail(email);
+            }
 
-            const user = await this.UserGatewayService.getUserByEmail(email);
+            if(!user) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'User not found.',
+                    data:user,
+                });
+            }
+
             if(!user) {
                 return res.status(404).json({
                     success: false,
