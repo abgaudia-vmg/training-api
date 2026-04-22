@@ -1,0 +1,124 @@
+{
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.fixAll.eslint": "explicit",
+        "source.organizeImports": "explicit"
+    },
+    "typescript.format.enable": true,
+    "eslint.format.enable": true,
+    "javascript.validate.enable": false,
+    "typescript.validate.enable": true,
+    "eslint.useFlatConfig": true,
+    "eslint.validate": [
+        "javascript",
+        "javascriptreact",
+        "typescript",
+        "typescriptreact"
+    ],
+    "editor.defaultFormatter": "dbaeumer.vscode-eslint",
+    "editor.formatOnPaste": true,
+    "editor.tabSize": 4,
+    "css.lint.unknownAtRules": "ignore",
+    "less.lint.unknownAtRules": "ignore",
+    "scss.lint.unknownAtRules": "ignore",
+    "typescript.tsdk": "node_modules\\typescript\\lib",
+    "editor.detectIndentation": false,
+    "turboConsoleLog.includeFileNameAndLineNum": true,
+    "editor.defaultColorDecorators": "auto",
+    "editor.tabCompletion": "onlySnippets",
+    "typescript.preferences.quoteStyle": "double",
+    "cSpell.words": [
+        "asrock",
+        "Asus",
+        "barangay",
+        "biostar",
+        "CFMIS",
+        "CHIPSET",
+        "Cracklin",
+        "cropid",
+        "cropname",
+        "customerid",
+        "customertype",
+        "Cybermeds",
+        "displayport",
+        "ecommerce",
+        "evga",
+        "Fanless",
+        "firstname",
+        "geforce",
+        "hookform",
+        "hpwr",
+        "Kopiko",
+        "lastname",
+        "Lato",
+        "localstorage",
+        "masterlist",
+        "nocheck",
+        "notif",
+        "Oishi",
+        "opengraph",
+        "opensans",
+        "palit",
+        "Paymongo",
+        "Pogiako",
+        "powercolor",
+        "pressable",
+        "Pressable",
+        "productname",
+        "radeon",
+        "reduxjs",
+        "RSBA",
+        "RSBSA",
+        "Signin",
+        "simplebar",
+        "sitio",
+        "sitios",
+        "Skyflakes",
+        "sonner",
+        "tanstack",
+        "testid",
+        "vatable",
+        "VIDEOCARD",
+        "Watchlist",
+        "wiredcard",
+        "wirelesscard",
+        "zotac",
+        "zustand"
+    ],
+    // "[typescript]": {
+    //   "editor.defaultFormatter": "vscode.typescript-language-features"
+    // },
+    "[css]": {
+        "editor.defaultFormatter": "vscode.css-language-features"
+    },
+    "[snippets]": {
+        "editor.defaultFormatter": "vscode.json-language-features"
+    },
+    "[typescriptreact]": {
+        "editor.defaultFormatter": "dbaeumer.vscode-eslint",
+        "editor.formatOnSave": true,
+        // "editor.codeActionsOnSave": {
+        //     "source.fixAll.eslint": "explicit"
+        // }
+    },
+    "[typescript]": {
+        "editor.defaultFormatter": "dbaeumer.vscode-eslint"
+    },
+    // Disables format on save for markdown files.
+    "[markdown]": {
+        "editor.formatOnSave": false
+    },
+    // Disables Markdown All in One from regenerating the TOC on save (avoids adding doc title / "Table of contents" heading into the TOC).
+    "markdown.extension.toc.updateOnSave": false,
+    "editor.indentSize": 4,
+    "editor.wrappingIndent": "same",
+    "notebook.defaultFormatter": "dbaeumer.vscode-eslint",
+    "editor.insertSpaces": true,
+    "editor.foldingStrategy": "auto",
+    "javascript.format.insertSpaceAfterOpeningAndBeforeClosingJsxExpressionBraces": true,
+    "typescript.format.insertSpaceAfterOpeningAndBeforeClosingJsxExpressionBraces": true,
+    "turboConsoleLog.includeFilename": true,
+    "turboConsoleLog.includeLineNum": true,
+    "turboConsoleLog.insertEmptyLineAfterLogMessage": true,
+    "turboConsoleLog.insertEmptyLineBeforeLogMessage": true
+}

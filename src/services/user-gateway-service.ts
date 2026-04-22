@@ -1,0 +1,61 @@
+// 'injectable' is used to mark classes as able to be injected; 
+// 'inject' is used for injecting dependencies into class constructors
+import { injectable } from 'inversify';
+
+import { IUser, UserModel } from '../model/user-model';
+// import { UserModel, IUser } from
+
+
+@injectable()
+export class UserGatewayService {
+    public async getAllUser(): Promise<IUser[]> {
+        return UserModel.find();
+    }
+
+    public async getUserById(userId: string): Promise<IUser | null> {
+        return UserModel.findById(userId);
+    }
+
+    public async getUserRoleByUserId(userId: string): Promise<'admin' | 'staff' | null> {
+        const user = await UserModel.findById(userId);
+        if(!user) {
+            return null;
+        }
+        return user.user_type as 'admin' | 'staff';
+    }
+
+    public async getUserByUsername(username: string): Promise<IUser | null> {
+        return UserModel.findOne({ username });
+    }
+    
+    public async getUserByEmail(email: string): Promise<IUser | null> {
+        return UserModel.findOne({ email });
+    }
+
+    public async addUser(userData: IUser): Promise<IUser | null> {
+        return UserModel.create(userData);
+    }
+
+    public async resetPassword({username, password}: {username: string, password: string}): Promise<IUser | null> {
+        return UserModel.findOneAndUpdate({ username }, { password }, { new: true });
+    }
+
+    public async updateUser(userId: string, userData: IUser): Promise<IUser | null> {
+        return UserModel.findByIdAndUpdate(userId, userData, { new: true });
+    }
+
+    public async deleteUser(userId: string): Promise<IUser | null> {
+        // return await UserModel.findByIdAndDelete(
+        //     userId, 
+        //     { 
+        //         deleted_at: new Date(), 
+        //         new: true 
+        //     }
+        // )
+        return UserModel.findByIdAndDelete(userId);
+    }
+
+    public async getUserCount(): Promise<number> {
+        return UserModel.countDocuments();
+    }
+}
