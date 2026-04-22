@@ -15,7 +15,7 @@ export class TodoGatewayService {
     }
     public async getAllTodoPerUser(userId: string, listFilters?: TodoListFilters): Promise<ITodo[]> {
         const mongoFilter = this.todoService.buildTodoFilter({ assigned_to: userId }, listFilters ?? {});
-        return TodoModel.find(mongoFilter).sort({ created_at: -1 });
+        return TodoModel.find(mongoFilter).sort({ created_at: -1 }).populate('created_by').populate('assigned_to');
     }
     public async getTodoById(todoId: string): Promise<ITodo | null>{
         return TodoModel.findById(todoId).sort({ created_at: -1 });
