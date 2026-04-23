@@ -49,10 +49,14 @@ export class TodoService {
 
         if (listFilters.status?.length) {
             filter.status = { $in: listFilters.status };
+        } else {
+            // exclude deleted by default
+            filter.status = { $ne: 'deleted' }; 
         }
 
         if (listFilters.query_string) {
-            const escaped = listFilters.query_string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            // sanitization of the query string
+            const escaped = listFilters.query_string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); 
             filter.$or = [
                 { title: { $regex: escaped, $options: 'i' } },
                 { description: { $regex: escaped, $options: 'i' } },

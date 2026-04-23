@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { inject } from 'inversify';
 import { controller, httpDelete, httpGet, httpPost, httpPut } from 'inversify-express-utils';
+import * as yup from 'yup';
 
 import { app_config } from '../configs/app.config';
 import { AdminAccessOnlyMiddleware } from '../middleware/admin-access-only.middleware';
@@ -10,6 +11,7 @@ import { AuthGatewayService } from '../services/auth-gateway-service';
 import { TodoGatewayService } from '../services/todo-gateway-service';
 import { TodoService } from '../services/todo-service';
 import { UserGatewayService } from '../services/user-gateway-service';
+import { createTodoSchema, updateTodoSchema } from '../validations/todo.validation';
 
 @controller('/todo', AuthenticationMiddleware)
 export class TodoController {
@@ -136,7 +138,7 @@ export class TodoController {
     @httpPost('/')
     public async createTodo(req: Request, res: Response) {
         try{
-
+            const todoData = await createTodoSchema.validate(req.body, { abortEarly: false, stripUnknown: true });
 
             // get the user data from the session
             const sessionId = req.cookies?.[app_config.actoCookie] || req.headers.session;
@@ -144,48 +146,39 @@ export class TodoController {
             const userId = userData?.user?._id;
             const userRole = userData?.user?.user_type;
 
+            const enrichedTodoData: Partial<ITodo> = { ...todoData, created_by: userId };
 
-            const todoData = req.body;
-            if(!todoData) {
+            if(userRole === 'staff') {
+                enrichedTodoData.assigned_to = userId;
+            }
+
+            if(!enrichedTodoData.assigned_to) {
                 return res.status(400).json({
                     success: false,
-                    payload: todoData,
-                    message: 'Failed to create todo, no data received',
+                    payload: enrichedTodoData,
+                    message: 'Unable to create todo, no user assigned to the todo.',
                 });
             }
-            
 
-            // set the created by field to the user id
-            todoData.created_by = userId;
-
-            // if the user is a staff, automatically assign the todo to the user
-            if(userRole === 'staff') {
-                todoData.assigned_to = userId;
-            }
-
-      
-            // if(!todoData.assigned_to) {
-            //     return res.status(400).json({
-            //         success:false,
-            //         payload: todoData,
-            //         message: 'Unable to create todo, no user assigned to the todo.'
-            //     });
-            // }
-
-
-            const todo = await this.TodoGatewayService.createTodo(todoData);
-      
+            const todo = await this.TodoGatewayService.createTodo(enrichedTodoData as ITodo);
 
             return res.status(200).json({
                 success: true,
                 message: 'Todo created successfully',
                 data: todo,
-                userRole
             });
-        } catch (error: any) {
+        } catch (error: unknown) {
+            if (error instanceof yup.ValidationError) {
+                return res.status(422).json({
+                    success: false,
+                    message: 'Validation failed',
+                    errors: error.inner.map((e) => ({ field: e.path, message: e.message })),
+                });
+            }
+
             return res.status(500).json({
                 success: false,
-                message: error?.message || 'Something went wrong.',
+                message: error instanceof Error ? error.message : 'Something went wrong.',
                 error,
             });
         }
@@ -195,33 +188,29 @@ export class TodoController {
     public async updateTodo(req: Request, res: Response) {
         try{
             const todoId = req.params.id;
-            const todoData = req.body as Partial<ITodo>;
-            if(!todoId || !todoData) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Failed to update todo, no data received',
-                    payload: todoData,
-                });
-            }
 
+            // stripUnknown removes created_by, created_at, updated_at automatically
+            const todoData = await updateTodoSchema.validate(req.body, { abortEarly: false, stripUnknown: true });
 
-            //exclude from updates
-            delete todoData.created_by;
-            delete todoData.created_at;
-
-
-            const updatedTodo = await this.TodoGatewayService.updateTodo({todo_id: todoId, todo_data: todoData as ITodo });
+            const updatedTodo = await this.TodoGatewayService.updateTodo({ todo_id: todoId, todo_data: todoData as ITodo });
             return res.status(200).json({
                 success: true,
                 message: 'Todo updated successfully',
-                data: updatedTodo, 
+                data: updatedTodo,
             });
 
+        } catch (error: unknown) {
+            if (error instanceof yup.ValidationError) {
+                return res.status(422).json({
+                    success: false,
+                    message: 'Validation failed',
+                    errors: error.inner.map((e) => ({ field: e.path, message: e.message })),
+                });
+            }
 
-        } catch (error: any) {
             return res.status(500).json({
                 success: false,
-                message: error?.message || 'Something went wrong.',
+                message: error instanceof Error ? error.message : 'Something went wrong.',
                 error,
             });
         }
