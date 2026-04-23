@@ -28,6 +28,7 @@ const userSchema = new Schema<IUser>(
             required: true,
             unique: true,
             trim: true,
+            match: [/^\S+@\S+\.\S+$/, 'Please enter a valid email address'],
         },
         first_name: {
             type: String,
@@ -43,6 +44,7 @@ const userSchema = new Schema<IUser>(
             type: String,
             required: true,
             trim: true,
+            match: [/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/, 'Password must be at least 8 characters and include 1 uppercase letter, 1 lowercase letter, and 1 number'],
         },
         user_type: {
             type: String,

@@ -36,8 +36,9 @@ export class UserGatewayService {
         return UserModel.create(userData);
     }
 
-    public async resetPassword({username, password}: {username: string, password: string}): Promise<IUser | null> {
-        return UserModel.findOneAndUpdate({ username }, { password }, { new: true });
+    public async resetPassword({ username, email, password }: { username?: string; email?: string; password: string }): Promise<IUser | null> {
+        const filter = username ? { username } : { email };
+        return UserModel.findOneAndUpdate(filter, { password }, { new: true });
     }
 
     public async updateUser(userId: string, userData: IUser): Promise<IUser | null> {
