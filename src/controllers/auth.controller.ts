@@ -3,8 +3,7 @@ import { Request, Response } from 'express';
 import { inject } from 'inversify';
 import { controller, httpGet, httpPost } from 'inversify-express-utils';
 import * as yup from 'yup';
-
-import { app_config } from '../configs/app.config';
+import { appConfig } from '../configs/app.config';
 import { IUser } from '../model/user-model';
 import { AuthGatewayService } from '../services/auth-gateway-service';
 import { AuthService } from '../services/auth-service';
@@ -15,12 +14,12 @@ import { createUserSchema, loginSchema, resetPasswordSchema } from '../validatio
 @controller('/auth')
 export class AuthController {
 
-    private domain = app_config.domain;
-    private accessTokenExp = app_config.accessTokenExp;
-    private refreshTokenExp = app_config.refreshTokenExp;
-    private cookieOptions = app_config.cookieOptions;
-    private get actoCookie(): string { return app_config.actoCookie; }
-    private get retoCookie(): string { return app_config.retoCookie; }
+    private domain = appConfig.domain;
+    private accessTokenExp = appConfig.accessTokenExp;
+    private refreshTokenExp = appConfig.refreshTokenExp;
+    private cookieOptions = appConfig.cookie_options;
+    private get actoCookie(): string { return appConfig.acto_cookie; }
+    private get retoCookie(): string { return appConfig.reto_cookie; }
 
     constructor(
         @inject(UserGatewayService) private UserGatewayService: UserGatewayService,
@@ -28,23 +27,16 @@ export class AuthController {
         @inject(AuthService) private AuthService: AuthService,
         @inject(AuthGatewayService) private AuthGatewayService: AuthGatewayService,
     ){}
-    
-   
+
     @httpGet('/validate')
     public async validate(req: Request, res: Response): Promise<Response> {
-        try { 
-
-            // get access token from cookies or headers (can't test cookies for now in postman; currently using headers)
+        try {
             const accessToken = req.cookies?.[this.actoCookie] || this.AuthService.extractBearerToken(req.headers.authorization!);
             const sessionId = req.cookies?.[this.retoCookie] || req.headers.session;
-           
-            console.log('actoCookie', req.cookies );
-            
             const validationResult = await this.AuthService.validateSession({
                 access_token: accessToken,
                 session_id: sessionId
             });
-
             if(!validationResult.success) {
                 return res.status(validationResult.status).json({
                     success: false,
@@ -52,25 +44,18 @@ export class AuthController {
                     relogin: validationResult.relogin,
                 });
             }
-
-           
-            // set access token cookie
             res.cookie(this.actoCookie, validationResult.data.new_access_token, {
                 httpOnly: true,
                 expires: this.accessTokenExp,
                 ...this.cookieOptions,
                 domain: this.domain,
             });
-
-            // set refresh token cookie
             res.cookie(this.retoCookie, validationResult.data.new_session_entry.session_id, {
                 httpOnly: true,
                 expires: this.refreshTokenExp,
                 ...this.cookieOptions,
                 domain: this.domain,
             });
-
-
             return res.status(200).json({
                 success:true,
                 message: validationResult.message || 'Session is valid.',
@@ -81,7 +66,6 @@ export class AuthController {
                     session_id: validationResult.data.new_session_entry.session_id,
                 },
             });
-
         } catch (error: any){
             return res.status(500).json({
                 success:false,
@@ -109,26 +93,21 @@ export class AuthController {
         }
     }
 
-
     @httpPost('/login')
     public async login(req: Request, res: Response): Promise<any> {
         try {
             const payload = await loginSchema.validate(req.body, { abortEarly: false, stripUnknown: true });
-
             const { username, email, password } = payload;
-
             const user = username
                 ? await this.UserGatewayService.getUserByUsername(username)
                 : await this.UserGatewayService.getUserByEmail(email ?? '');
-
             if (!user) {
-                return res.status(404).json({
+                return res.status(404).json({ //change to 204
                     success: false,
                     message: 'User not found.',
                     data:user,
                 });
             }
-
             const passwordMatch = await argon2.verify(user.password, password);
             if (!passwordMatch) {
                 return res.status(401).json({
@@ -136,34 +115,22 @@ export class AuthController {
                     message: 'Incorrect username or password.',
                 });
             }
-
-            const jwtSecret = process.env.jwt_secret ?? process.env.JWT_SECRET;
-            if (!jwtSecret) {
-                return res.status(500).json({
-                    success: false,
-                    message: 'Server configuration error: JWT secret is not set.',
-                });
-            }
-
             const { generated_access_token, generated_session } = this.AuthService.generateSessionAndToken({
                 user_data: user,
                 refresh_token_exp: this.refreshTokenExp,
             });
-
             res.cookie(this.actoCookie, generated_access_token, {
                 httpOnly: true,
                 expires: this.accessTokenExp,
                 ...this.cookieOptions,
                 domain: this.domain,
             });
-
             res.cookie(this.retoCookie, generated_session.session_id, {
                 httpOnly: true,
                 expires: this.refreshTokenExp,
                 ...this.cookieOptions,
                 domain: this.domain,
             });
-
             const newSessionEntry = await this.AuthGatewayService.createSessionEntry(generated_session);
             if (!newSessionEntry) {
                 return res.status(500).json({
@@ -171,7 +138,6 @@ export class AuthController {
                     message: 'Failed to create session entry.',
                 });
             }
-
             return res.status(200).json({
                 success: true,
                 message: 'Login successful.',
@@ -190,15 +156,16 @@ export class AuthController {
                     errors: error.inner.map((e) => ({ field: e.path, message: e.message })),
                 });
             }
+
             const message = error instanceof Error ? error.message : 'Something went wrong';
             return res.status(500).json({
                 success: false,
                 message,
                 error,
             });
+
         }
     }
-
     @httpPost('/register')
     public async register(req: Request, res: Response): Promise<Response> {
         try {
@@ -209,10 +176,8 @@ export class AuthController {
                     message: 'Failed to register, no data received',
                 });
             }
-
             const newUserData = await this.UserService.generateUserEntry({ userData });
             const createdUser = await this.UserGatewayService.addUser(newUserData);
-
             return res.status(200).json({
                 success: true,
                 message: 'User registered successfully',

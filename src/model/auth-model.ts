@@ -1,13 +1,11 @@
 import { model, Schema, type Document } from 'mongoose';
 
-
-//interface 
+//interface
 export interface IAuth extends Document {
     user: any;
     session_id: string;
     expiration: Date;
 }
-
 
 //schema
 const authSchema = new Schema(
@@ -39,6 +37,4 @@ const authSchema = new Schema(
 
 authSchema.index({ user: 1, session_id: 1});
 
-
-//model
 export const AuthModel = model<IAuth>('Auth', authSchema);
