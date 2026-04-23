@@ -4,7 +4,6 @@ import typescriptParser from "@typescript-eslint/parser";
 import importPlugin from "eslint-plugin-import";
 import globals from "globals";
 
-
 // ========================================
 // ESLINT CONFIGURATION
 // ========================================
@@ -92,7 +91,7 @@ const config = [
             // DEBUGGING / DEVELOPMENT
             // ========================================
 
-            "no-console": ["error"],
+            "no-console": ["warn", { allow: ["warn", "error"] }],
 
             // ========================================
             // CODE CORRECTNESS
@@ -127,7 +126,7 @@ const config = [
             // TYPESCRIPT
             // ========================================
 
-            "@typescript-eslint/no-explicit-any": "off",
+            "@typescript-eslint/no-explicit-any": "warn",
             "@typescript-eslint/no-non-null-assertion": "warn",
             "@typescript-eslint/explicit-function-return-type": "off",
             "@typescript-eslint/ban-ts-comment": "off",
@@ -148,6 +147,19 @@ const config = [
                 4,
                 {
                     SwitchCase: 1,
+                },
+            ],
+
+            "@stylistic/no-trailing-spaces": "error",
+            // max: Maximum number of consecutive empty lines allowed.
+            // maxBOF: Maximum number of empty lines allowed at the beginning (BOF: Beginning Of File).
+            // maxEOF: Maximum number of empty lines allowed at the end (EOF: End Of File).
+            "@stylistic/no-multiple-empty-lines": [
+                "error",
+                {
+                    max: 1,
+                    maxBOF: 0, // no empty lines at the beginning of the file
+                    maxEOF: 1, // at most one empty line at the end of the file
                 },
             ],
 
@@ -180,7 +192,7 @@ const config = [
                         { pattern: "../**", group: "internal", position: "before" },
                     ],
                     pathGroupsExcludedImportTypes: ["builtin"],
-                    "newlines-between": "always",
+                    "newlines-between": "never",
                     alphabetize: { order: "asc", caseInsensitive: true },
                 },
             ],
