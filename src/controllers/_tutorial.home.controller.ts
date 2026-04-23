@@ -6,8 +6,6 @@ import { BaseHttpController, controller, httpGet } from 'inversify-express-utils
 @controller('/')
 export class HomeController extends BaseHttpController {
 
-
-
     // add different methods to the controller
     // SUB ROUTE
     @httpGet('/')
