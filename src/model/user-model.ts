@@ -1,9 +1,5 @@
 import { type Document, model, Schema } from 'mongoose';
 
-
-//interface 
-//schema
-//model
 export interface IUser extends Document {
     _id: Schema.Types.ObjectId;
     username: string;

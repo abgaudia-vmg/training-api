@@ -2,8 +2,7 @@ import { Request, Response } from 'express';
 import { inject } from 'inversify';
 import { controller, httpDelete, httpGet, httpPost, httpPut } from 'inversify-express-utils';
 import * as yup from 'yup';
-
-import { app_config } from '../configs/app.config';
+import { appConfig } from '../configs/app.config';
 import { AdminAccessOnlyMiddleware } from '../middleware/admin-access-only.middleware';
 import { AuthenticationMiddleware } from '../middleware/authentication.middleware';
 import { ITodo } from '../model/todo-model';
@@ -22,7 +21,6 @@ export class TodoController {
         @inject(TodoService) private todoService: TodoService,
         @inject(AuthGatewayService) private AuthGatewayService: AuthGatewayService,
     ) { }
-
 
     @httpGet('/', AdminAccessOnlyMiddleware)
     public async getAll(req: Request, res: Response) {
@@ -46,7 +44,7 @@ export class TodoController {
             });
         }
     }
-    
+
     @httpGet('/all-per-user/:userId', AdminAccessOnlyMiddleware)
     public async getAllTodoPerUser(req: Request, res: Response) {
         try {
@@ -57,12 +55,10 @@ export class TodoController {
                     message: 'userId path parameter is required',
                 });
             }
-
             const listFilterResult = this.todoService.parseTodoFilters(req);
             if (!listFilterResult.ok) {
                 return res.status(listFilterResult.httpStatus).json(listFilterResult.body);
             }
-
             const todosForUser = await this.TodoGatewayService.getAllTodoPerUser(userId, listFilterResult.listFilters);
             return res.status(200).json({
                 success: true,
@@ -77,20 +73,17 @@ export class TodoController {
             });
         }
     }
-    
+
     @httpGet('/my-todos')
     public async getAllMyTodos(req: Request, res: Response) {
         try {
-            const sessionId = req.cookies?.[app_config.actoCookie] || req.headers.session;
+            const sessionId = req.cookies?.[appConfig.acto_cookie] || req.headers.session;
             const userData = await this.AuthGatewayService.getSessionEntry(sessionId);
             const userId = userData?.user?._id;
-
-
             const listFilterResult = this.todoService.parseTodoFilters(req);
             if (!listFilterResult.ok) {
                 return res.status(listFilterResult.httpStatus).json(listFilterResult.body);
             }
-
             const todosForUser = await this.TodoGatewayService.getAllTodoPerUser(userId, listFilterResult.listFilters);
             return res.status(200).json({
                 success: true,
@@ -108,9 +101,9 @@ export class TodoController {
 
     @httpGet('/:id')
     public async getTodoById(req: Request, res: Response) {
-        try{ 
+        try{
 
-            const todoId = req.params.id; 
+            const todoId = req.params.id;
             const todo = await this.TodoGatewayService.getTodoById(todoId);
             if(!todo) {
                 return res.status(404).json({
@@ -125,7 +118,7 @@ export class TodoController {
                 message: 'Todo with id found.',
                 data: todo,
             });
-            
+
         } catch (error: any) {
             return res.status(500).json({
                 success: false,
@@ -141,7 +134,7 @@ export class TodoController {
             const todoData = await createTodoSchema.validate(req.body, { abortEarly: false, stripUnknown: true });
 
             // get the user data from the session
-            const sessionId = req.cookies?.[app_config.actoCookie] || req.headers.session;
+            const sessionId = req.cookies?.[appConfig.acto_cookie] || req.headers.session;
             const userData = await this.AuthGatewayService.getSessionEntry(sessionId);
             const userId = userData?.user?._id;
             const userRole = userData?.user?.user_type;
@@ -234,6 +227,5 @@ export class TodoController {
             });
         }
     }
-
 
 }

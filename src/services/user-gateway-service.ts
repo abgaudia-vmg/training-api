@@ -1,10 +1,8 @@
-// 'injectable' is used to mark classes as able to be injected; 
+// 'injectable' is used to mark classes as able to be injected;
 // 'inject' is used for injecting dependencies into class constructors
 import { injectable } from 'inversify';
-
 import { IUser, UserModel } from '../model/user-model';
 // import { UserModel, IUser } from
-
 
 @injectable()
 export class UserGatewayService {
@@ -27,7 +25,7 @@ export class UserGatewayService {
     public async getUserByUsername(username: string): Promise<IUser | null> {
         return UserModel.findOne({ username });
     }
-    
+
     public async getUserByEmail(email: string): Promise<IUser | null> {
         return UserModel.findOne({ email });
     }
@@ -46,13 +44,6 @@ export class UserGatewayService {
     }
 
     public async deleteUser(userId: string): Promise<IUser | null> {
-        // return await UserModel.findByIdAndDelete(
-        //     userId, 
-        //     { 
-        //         deleted_at: new Date(), 
-        //         new: true 
-        //     }
-        // )
         return UserModel.findByIdAndDelete(userId);
     }
 

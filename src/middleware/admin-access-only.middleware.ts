@@ -1,8 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import { inject, injectable } from 'inversify';
 import { BaseMiddleware } from 'inversify-express-utils';
-
-import { app_config } from '../configs/app.config';
+import { appConfig } from '../configs/app.config';
 import { AuthGatewayService } from '../services/auth-gateway-service';
 import { AuthService } from '../services/auth-service';
 import { UserGatewayService } from '../services/user-gateway-service';
@@ -21,8 +20,7 @@ export class AdminAccessOnlyMiddleware extends BaseMiddleware {
 
     async handler(req: Request, res: Response, next: NextFunction): Promise<any> {
         try {
-            const  actoCookie = app_config.actoCookie;
-
+            const  actoCookie = appConfig.acto_cookie;
             const sessionId = req.cookies?.[actoCookie] || req.headers.session;
             const userData = await this.AuthGatewayService.getSessionEntry(sessionId);
             if(!userData) {
@@ -31,7 +29,6 @@ export class AdminAccessOnlyMiddleware extends BaseMiddleware {
                     message: 'User not found.',
                 });
             }
-
             const userRole = userData?.user?.user_type;
             if(userRole !== 'admin') {
                 return res.status(403).json({
@@ -39,9 +36,7 @@ export class AdminAccessOnlyMiddleware extends BaseMiddleware {
                     message: 'Forbidden: access_denied',
                 });
             }
-
             next();
-            
         } catch (error: any) {
             next(error);
         }

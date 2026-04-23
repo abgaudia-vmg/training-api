@@ -1,6 +1,6 @@
 const isProduction = process.env.NODE_ENV === 'production';
 
-export const app_config = { // convert camelCase
+export const appConfig = { // convert camelCase
     domain: isProduction ? 'yourdomain.com' : 'localhost',
     domain_email: 'email.com',
     get accessTokenExp() { return new Date(Date.now() + 15 * 60 * 1000); },
