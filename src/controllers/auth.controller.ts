@@ -2,12 +2,15 @@ import * as argon2 from 'argon2';
 import { Request, Response } from 'express';
 import { inject } from 'inversify';
 import { controller, httpGet, httpPost } from 'inversify-express-utils';
+import * as yup from 'yup';
 
 import { app_config } from '../configs/app.config';
+import { IUser } from '../model/user-model';
 import { AuthGatewayService } from '../services/auth-gateway-service';
 import { AuthService } from '../services/auth-service';
 import { UserGatewayService } from '../services/user-gateway-service';
 import { UserService } from '../services/user-service';
+import { createUserSchema, loginSchema, resetPasswordSchema } from '../validations/user.validation';
 
 @controller('/auth')
 export class AuthController {
@@ -26,97 +29,7 @@ export class AuthController {
         @inject(AuthGatewayService) private AuthGatewayService: AuthGatewayService,
     ){}
     
-    // @httpGet('/validate')
-    // public async validate(req: Request, res: Response): Promise<Response> {
-    //     try { 
-
-    //         // get access token from cookies or headers (can't test cookies for now in postman; currently using headers)
-    //         const accessToken = req.cookies?.[this.actoCookie] || this.AuthService.extractBearerToken(req.headers.authorization!);
-    //         const sessionId = req.cookies?.[this.retoCookie] || req.headers.session;
-    //         if(!accessToken || !sessionId) {
-    //             return res.status(401).json({
-    //                 success:false,
-    //                 message: 'Unauthorized.',
-    //             });
-    //         }
-
-    //         //look-up session entry in database
-    //         const sessionEntryCurrent = await this.AuthGatewayService.getSessionEntry(sessionId!);
-    //         if(!sessionEntryCurrent) {
-    //             return res.status(401).json({
-    //                 success:false,
-    //                 message: 'Unauthorized.',
-    //             });
-    //         }
-
-
-    //         // verify access token
-    //         // const verifiedToken = jwt.verify(accessToken!, process.env.jwt_secret!);
-    //         const verifiedToken = this.AuthService.verifyJWT(accessToken!);
-    //         if(!verifiedToken) {
-    //             return res.status(401).json({
-    //                 success:false,
-    //                 message: 'Unauthorized.',
-    //             });
-    //         }
-
-
-    //         // generate new access token and session
-    //         const { generated_access_token, generated_session } = this.AuthService.generateSessionAndToken({
-    //             //@ts-ignore - TODO: fix this
-    //             user_data: sessionEntryCurrent.user,
-    //             refresh_token_exp: sessionEntryCurrent.expiration,
-    //         });
-
-            
-    //         // set access token cookie
-    //         res.cookie(this.actoCookie, generated_access_token, {
-    //             httpOnly: true,
-    //             expires: this.accessTokenExp,
-    //             sameSite: 'none',
-    //             secure: true,
-    //             domain: this.domain,
-    //         });
-
-    //         // set refresh token cookie
-    //         res.cookie(this.retoCookie, generated_session.session_id, {
-    //             httpOnly: true,
-    //             expires: this.refreshTokenExp,
-    //             sameSite: 'none',
-    //             secure: true,
-    //             domain: this.domain,
-    //         });
-
-
-    //         // create session entry in database
-    //         const sessionEntryNew = await this.AuthGatewayService.createSessionEntry(generated_session);
-
-    //         if(!sessionEntryNew) {
-    //             return res.status(500).json({
-    //                 success: false,
-    //                 message: 'Failed to create session entry.',
-    //             });
-    //         }
-
-    //         return res.status(200).json({
-    //             success:true,
-    //             message: 'Session is valid.',
-    //             data: {
-    //                 verified_token: verifiedToken,
-    //                 session_entry: sessionEntryNew,
-    //                 access_token: generated_access_token,
-    //                 session_id: generated_session.session_id,
-    //             },
-    //         });
-
-    //     } catch (error: any){
-    //         return res.status(500).json({
-    //             success:false,
-    //             message: error?.message || 'Something went wrong.',
-    //             full_error: error
-    //         });
-    //     }
-    // }
+   
     @httpGet('/validate')
     public async validate(req: Request, res: Response): Promise<Response> {
         try { 
@@ -199,28 +112,15 @@ export class AuthController {
     @httpPost('/login')
     public async login(req: Request, res: Response): Promise<any> {
         try {
+            const payload = await loginSchema.validate(req.body, { abortEarly: false, stripUnknown: true });
 
-            if(!req.body || (!req.body.email && !req.body.username) || !req.body.password) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Failed to login, no email or username or password provided.',
-                });
-            }
+            const { username, email, password } = payload;
 
-            const payload = req.body;
-            const username = payload?.username as string;
-            const email = payload?.email as string;
-            const password = payload?.password as string;
-            let user = null;
-            if(username) {
-                user = await this.UserGatewayService.getUserByUsername(username);
-            } 
-            
-            if(email) {
-                user = await this.UserGatewayService.getUserByEmail(email);
-            }
+            const user = username
+                ? await this.UserGatewayService.getUserByUsername(username)
+                : await this.UserGatewayService.getUserByEmail(email ?? '');
 
-            if(!user) {
+            if (!user) {
                 return res.status(404).json({
                     success: false,
                     message: 'User not found.',
@@ -228,15 +128,8 @@ export class AuthController {
                 });
             }
 
-            if(!user) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'User not found.',
-                    data:user,
-                });
-            }
             const passwordMatch = await argon2.verify(user.password, password);
-            if(!passwordMatch) {
+            if (!passwordMatch) {
                 return res.status(401).json({
                     success: false,
                     message: 'Incorrect username or password.',
@@ -256,7 +149,6 @@ export class AuthController {
                 refresh_token_exp: this.refreshTokenExp,
             });
 
-            
             res.cookie(this.actoCookie, generated_access_token, {
                 httpOnly: true,
                 expires: this.accessTokenExp,
@@ -271,32 +163,37 @@ export class AuthController {
                 domain: this.domain,
             });
 
-
             const newSessionEntry = await this.AuthGatewayService.createSessionEntry(generated_session);
-            if(!newSessionEntry) {
+            if (!newSessionEntry) {
                 return res.status(500).json({
                     success: false,
                     message: 'Failed to create session entry.',
                 });
             }
 
-            
             return res.status(200).json({
                 success: true,
                 message: 'Login successful.',
                 data: {
                     session_entry: newSessionEntry,
                     access_token: generated_access_token,
-                    // refresh_token: sessionPayload.sessionId,
                     session_id: generated_session.session_id,
-                }
+                },
             });
 
-        } catch (error: any) {
+        } catch (error: unknown) {
+            if (error instanceof yup.ValidationError) {
+                return res.status(422).json({
+                    success: false,
+                    message: 'Validation failed',
+                    errors: error.inner.map((e) => ({ field: e.path, message: e.message })),
+                });
+            }
+            const message = error instanceof Error ? error.message : 'Something went wrong';
             return res.status(500).json({
                 success: false,
-                message: error?.message ?? 'Something went wrong.',
-                payload: req.body,
+                message,
+                error,
             });
         }
     }
@@ -304,7 +201,7 @@ export class AuthController {
     @httpPost('/register')
     public async register(req: Request, res: Response): Promise<Response> {
         try {
-            const userData = req.body;
+            const userData = await createUserSchema.validate(req.body, { abortEarly: false, stripUnknown: true }) as IUser;
             if (!userData) {
                 return res.status(400).json({
                     success: false,
@@ -321,6 +218,13 @@ export class AuthController {
                 data: createdUser,
             });
         } catch (error: unknown) {
+            if (error instanceof yup.ValidationError) {
+                return res.status(422).json({
+                    success: false,
+                    message: 'Validation failed',
+                    errors: error.inner.map((e) => ({ field: e.path, message: e.message })),
+                });
+            }
             const message =
                 error instanceof Error ? error.message : 'Something went wrong';
             return res.status(500).json({
@@ -333,37 +237,37 @@ export class AuthController {
     @httpPost('/reset-password')
     public async resetPassword(req: Request, res: Response): Promise<any> {
         try {
+            const payload = await resetPasswordSchema.validate(req.body, { abortEarly: false, stripUnknown: true });
 
-            if(!req.body || !req.body.username || !req.body.password) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Failed to reset password, no username or password provided.',
-                });
-            }
-            // only require password and username
-            const payload = req.body;
-            const username = payload?.username as string;
-            const password = payload?.password as string;
+            const { username, email, password } = payload;
             const hashedPassword = await argon2.hash(password);
 
-            const userUpdatePassword = await this.UserGatewayService.resetPassword({username, password: hashedPassword});
-            if(!userUpdatePassword) {
+            const userUpdatePassword = await this.UserGatewayService.resetPassword({ username, email, password: hashedPassword });
+            if (!userUpdatePassword) {
                 return res.status(400).json({
                     success: false,
                     message: 'Failed to reset password.',
                 });
             }
-            
+
             return res.status(200).json({
                 success: true,
                 message: 'Password reset successful.',
                 data: userUpdatePassword,
             });
-        } catch (error: any) {
+        } catch (error: unknown) {
+            if (error instanceof yup.ValidationError) {
+                return res.status(422).json({
+                    success: false,
+                    message: 'Validation failed',
+                    errors: error.inner.map((e) => ({ field: e.path, message: e.message })),
+                });
+            }
+            const message = error instanceof Error ? error.message : 'Something went wrong';
             return res.status(500).json({
                 success: false,
-                message: error?.message || 'Something went wrong.',
-                error,
+                message,
+                error
             });
         }
     }
