@@ -1,11 +1,14 @@
 import { Request, Response } from 'express';
 import { inject } from 'inversify';
 import { controller, httpDelete, httpGet, httpPost, httpPut } from 'inversify-express-utils';
+import * as yup from 'yup';
 
 import { AdminAccessOnlyMiddleware } from '../middleware/admin-access-only.middleware';
 import { AuthenticationMiddleware } from '../middleware/authentication.middleware';
+import { IUser } from '../model/user-model';
 import { UserGatewayService } from '../services/user-gateway-service';
 import { UserService } from '../services/user-service';
+import { createUserSchema, updateUserSchema } from '../validations/user.validation';
 
 
 
@@ -71,29 +74,30 @@ export class UserController {
     @httpPost('/')
     public async addUser(req: Request, res: Response) {
         try {
-            const userData = req.body;
-            if (!userData) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Failed to add user, no data received'
-                });
-            }
+            const userData = await createUserSchema.validate(req.body, { abortEarly: false, stripUnknown: true });
 
-            const newUserData = await this.UserService.generateUserEntry({ userData });
+            const newUserData = await this.UserService.generateUserEntry({ userData: userData as IUser });
             const createdUser = await this.UserGatewayService.addUser(newUserData);
 
-            
             return res.status(200).json({
                 success: true,
                 message: 'User Added Successfully',
                 data: createdUser,
             });
 
-        } catch (error: any) {
+        } catch (error: unknown) {
+            if (error instanceof yup.ValidationError) {
+                return res.status(422).json({
+                    success: false,
+                    message: 'Validation failed',
+                    errors: error.inner.map((e) => ({ field: e.path, message: e.message })),
+                });
+            }
+
             return res.status(500).json({
                 success: false,
-                message: error?.message || 'Something went wrong',
-                error
+                message: error instanceof Error ? error.message : 'Something went wrong',
+                error,
             });
         }
     }
@@ -102,31 +106,36 @@ export class UserController {
     @httpPut('/:id')
     public async updateUser(req: Request, res: Response) {
         try {
-            const userId = req.params.id; // get from params or body
-            const userData = req.body;
+            const userId = req.params.id;
+            const userData = await updateUserSchema.validate(req.body, { abortEarly: false, stripUnknown: true });
 
-            const updatedUser = await this.UserGatewayService.updateUser(userId, userData);
-            
-            // Guard Clause
+            const updatedUser = await this.UserGatewayService.updateUser(userId, userData as IUser);
+
             if (!updatedUser) {
                 return res.status(404).json({
                     success: false,
                     message: 'User Not Found'
                 });
             }
- 
-
 
             return res.status(200).json({
                 success: true,
                 data: updatedUser,
                 message: 'User Updated Successfully'
             });
-         
-        } catch (error: any) {
+
+        } catch (error: unknown) {
+            if (error instanceof yup.ValidationError) {
+                return res.status(422).json({
+                    success: false,
+                    message: 'Validation failed',
+                    errors: error.inner.map((e) => ({ field: e.path, message: e.message })),
+                });
+            }
+
             return res.status(500).json({
                 success: false,
-                message: error?.message || 'Something went wrong'
+                message: error instanceof Error ? error.message : 'Something went wrong',
             });
         }
     }
