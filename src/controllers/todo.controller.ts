@@ -3,6 +3,7 @@ import { inject } from 'inversify';
 import { controller, httpDelete, httpGet, httpPost, httpPut } from 'inversify-express-utils';
 
 import { app_config } from '../configs/app.config';
+import { AdminAccessOnlyMiddleware } from '../middleware/admin-access-only.middleware';
 import { AuthenticationMiddleware } from '../middleware/authentication.middleware';
 import { ITodo } from '../model/todo-model';
 import { AuthGatewayService } from '../services/auth-gateway-service';
@@ -21,7 +22,7 @@ export class TodoController {
     ) { }
 
 
-    @httpGet('/')
+    @httpGet('/', AdminAccessOnlyMiddleware)
     public async getAll(req: Request, res: Response) {
         try {
             const listFilterResult = this.todoService.parseTodoFilters(req);
@@ -44,7 +45,7 @@ export class TodoController {
         }
     }
     
-    @httpGet('/all-per-user/:userId')
+    @httpGet('/all-per-user/:userId', AdminAccessOnlyMiddleware)
     public async getAllTodoPerUser(req: Request, res: Response) {
         try {
             const userId = req.params.userId?.trim();
@@ -54,6 +55,34 @@ export class TodoController {
                     message: 'userId path parameter is required',
                 });
             }
+
+            const listFilterResult = this.todoService.parseTodoFilters(req);
+            if (!listFilterResult.ok) {
+                return res.status(listFilterResult.httpStatus).json(listFilterResult.body);
+            }
+
+            const todosForUser = await this.TodoGatewayService.getAllTodoPerUser(userId, listFilterResult.listFilters);
+            return res.status(200).json({
+                success: true,
+                message: 'Todos fetched successfully',
+                data: todosForUser ?? [],
+            });
+        } catch (error: any) {
+            return res.status(500).json({
+                success: false,
+                message: error?.message || 'Something went wrong.',
+                error,
+            });
+        }
+    }
+    
+    @httpGet('/my-todos')
+    public async getAllMyTodos(req: Request, res: Response) {
+        try {
+            const sessionId = req.cookies?.[app_config.actoCookie] || req.headers.session;
+            const userData = await this.AuthGatewayService.getSessionEntry(sessionId);
+            const userId = userData?.user?._id;
+
 
             const listFilterResult = this.todoService.parseTodoFilters(req);
             if (!listFilterResult.ok) {
@@ -149,7 +178,7 @@ export class TodoController {
 
             return res.status(200).json({
                 success: true,
-                message: 'Todo created successfullysss',
+                message: 'Todo created successfully',
                 data: todo,
                 userRole
             });
