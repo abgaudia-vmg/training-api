@@ -49,6 +49,7 @@ export class AuthController {
                 return res.status(validationResult.status).json({
                     success: false,
                     message: validationResult.message,
+                    relogin: validationResult.relogin,
                 });
             }
 

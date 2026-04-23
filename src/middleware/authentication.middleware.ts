@@ -44,6 +44,7 @@ export class AuthenticationMiddleware extends BaseMiddleware {
                 return res.status(validationResult.status).json({
                     success: false,
                     message: validationResult.message,
+                    relogin: validationResult.relogin,
                 });
             }
 

@@ -134,6 +134,7 @@ export class AuthService {
                 status: 401,
                 success: false,
                 message: 'Unauthorized: invalid_session',
+                relogin: true,
             };
         }
 
@@ -144,6 +145,7 @@ export class AuthService {
                 status: 401,
                 success: false,
                 message: 'Unauthorized: invalid_session',
+                relogin: true,
             };
         }
 
@@ -154,6 +156,7 @@ export class AuthService {
                 status: 401,
                 success: false,
                 message: 'Unauthorized: invalid_token',
+                relogin: true,
             };
         }
 
@@ -170,6 +173,7 @@ export class AuthService {
                 status: 500,
                 success: false,
                 message: 'Unauthorized: session_create_failed',
+                relogin: true,
             };
         }
 
@@ -206,7 +210,7 @@ export interface IValidateSessionInput {
 
 export type TValidationSessionResult = 
   | { status: number, success: true; message: string; data: { verified_token: any; new_session_entry: ISessionPayload; new_access_token: string; session_id: string } }
-  | { status: number, success: false; message: 'Unauthorized: missing_token' | 'Unauthorized: invalid_session' | 'Unauthorized: invalid_token' | 'Unauthorized: session_create_failed' };
+  | { status: number, success: false; message: 'Unauthorized: missing_token' | 'Unauthorized: invalid_session' | 'Unauthorized: invalid_token' | 'Unauthorized: session_create_failed', relogin?: boolean };
 
 
 
