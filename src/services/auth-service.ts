@@ -106,7 +106,6 @@ export class AuthService {
     }
 
     public async validateSession({access_token, session_id}: IValidateSessionInput): Promise<TValidationSessionResult> {
-
         if(!access_token || !session_id) {
             return {
                 status: 401,

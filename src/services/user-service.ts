@@ -15,7 +15,6 @@ export class UserService {
         last_name: string;
         domain?: string;
     }) {
-
         const last_name_lowercase = last_name?.toLowerCase();
         const first_name_lowercase = first_name?.toLowerCase();
         const firstNameTrimmed = first_name_lowercase?.trim();
