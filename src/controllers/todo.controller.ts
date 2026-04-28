@@ -106,7 +106,7 @@ export class TodoController {
             const todoId = req.params.id;
             const todo = await this.TodoGatewayService.getTodoById(todoId);
             if(!todo) {
-                return res.status(404).json({
+                return res.status(204).json({
                     success: false,
                     message: 'No todo with this id found.',
                     todo_id: todoId,

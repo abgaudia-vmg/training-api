@@ -102,7 +102,7 @@ export class AuthController {
                 ? await this.UserGatewayService.getUserByUsername(username)
                 : await this.UserGatewayService.getUserByEmail(email ?? '');
             if (!user) {
-                return res.status(404).json({ //change to 204
+                return res.status(204).json({ //change to 204
                     success: false,
                     message: 'User not found.',
                     data:user,
@@ -212,7 +212,7 @@ export class AuthController {
             if (!userUpdatePassword) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Failed to reset password.',
+                    message: 'Failed to reset password, user does not exist.',
                 });
             }
 

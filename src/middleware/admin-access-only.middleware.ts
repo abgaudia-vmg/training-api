@@ -24,7 +24,7 @@ export class AdminAccessOnlyMiddleware extends BaseMiddleware {
             const sessionId = req.cookies?.[actoCookie] || req.headers.session;
             const userData = await this.AuthGatewayService.getSessionEntry(sessionId);
             if(!userData) {
-                return res.status(404).json({
+                return res.status(204).json({
                     success: false,
                     message: 'User not found.',
                 });
