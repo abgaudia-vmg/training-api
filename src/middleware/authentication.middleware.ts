@@ -19,6 +19,7 @@ export class AuthenticationMiddleware extends BaseMiddleware {
             const domain = appConfig.domain;
             const retoCookie = appConfig.reto_cookie;
             const actoCookie = appConfig.acto_cookie;
+            const cookieOptions = appConfig.cookie_options;
             if(!retoCookie || !actoCookie) {
                 return res.status(401).json({
                     success: false,
@@ -41,15 +42,13 @@ export class AuthenticationMiddleware extends BaseMiddleware {
             res.cookie(actoCookie, validationResult.data.new_access_token, {
                 httpOnly: true,
                 expires: appConfig.accessTokenExp,
-                sameSite: 'none',
-                secure: true,
+                ...cookieOptions,
                 domain: domain,
             });
             res.cookie(retoCookie, validationResult.data.new_session_entry.session_id, {
                 httpOnly: true,
                 expires: appConfig.refreshTokenExp,
-                sameSite: 'none',
-                secure: true,
+                ...cookieOptions,
                 domain: domain,
             });
             next();

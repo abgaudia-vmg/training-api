@@ -1,23 +1,22 @@
 import 'reflect-metadata';
 import './load-env';
 
+import cookieParser from 'cookie-parser';
 import express from 'express';
 import { InversifyExpressServer } from 'inversify-express-utils';
-
 import containerInversify from './configs/inversify.configs';
 import { connectMongoose } from './configs/mongoose.configs';
-
 const cors = require('cors');
 
-//instantiate the server
+//Learnings: instantiate the server
 const serverInversify = new InversifyExpressServer(containerInversify);
 const PORT = process.env.PORT || 3000;
 
-
-// set configs
+// Learnings: set configs
 serverInversify.setConfig((app) => {
     app.use(express.json());
     app.use(express.urlencoded({ extended: true }));
+    app.use(cookieParser());
     app.use(cors({
         credentials: true,
         origin: true
@@ -26,7 +25,7 @@ serverInversify.setConfig((app) => {
 
 const app = serverInversify.build();
 
-// Connect to MongoDB (and sync indexes) before accepting traffic.
+// Learnings: Connect to MongoDB (and sync indexes) before accepting traffic.
 connectMongoose()
     .then(() => {
         app.listen(PORT, () => {
