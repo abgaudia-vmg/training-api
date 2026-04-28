@@ -14,6 +14,7 @@ const authSchema = new Schema(
             type: Schema.Types.ObjectId,
             ref: 'User',
             required: true,
+            unique: true,
         },
         session_id: {
             type: String,
