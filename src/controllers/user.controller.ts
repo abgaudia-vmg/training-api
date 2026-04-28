@@ -40,7 +40,7 @@ export class UserController {
             const userId = req.params.id;
             const user = await this.UserGatewayService.getUserById(userId);
             if (!user) {
-                return res.status(404).json({
+                return res.status(204).json({
                     success: false,
                     message: 'User Not Found',
                 });
@@ -94,7 +94,7 @@ export class UserController {
             const userData = await updateUserSchema.validate(req.body, { abortEarly: false, stripUnknown: true });
             const updatedUser = await this.UserGatewayService.updateUser(userId, userData as IUser);
             if (!updatedUser) {
-                return res.status(404).json({
+                return res.status(204).json({
                     success: false,
                     message: 'User Not Found'
                 });
@@ -127,7 +127,7 @@ export class UserController {
             const deletedUser = await this.UserGatewayService.deleteUser(userId);
             const newUserCount = await this.UserGatewayService.getUserCount();
             if (!deletedUser) {
-                return res.status(404).json({
+                return res.status(204).json({
                     success: false,
                     message: 'User Not Found, delete action failed',
                 });
