@@ -6,6 +6,10 @@ const emailRegex = /^\S+@\S+\.\S+$/;
 const userTypeValues = ['staff', 'admin'] as const;
 
 export const createUserSchema = yup.object({
+    username: yup
+        .string()
+        .trim()
+        .required('Username is required'),
     email: yup
         .string()
         .trim()

@@ -6,7 +6,7 @@ import { AdminAccessOnlyMiddleware } from '../middleware/admin-access-only.middl
 import { AuthenticationMiddleware } from '../middleware/authentication.middleware';
 import { IUser } from '../model/user-model';
 import { UserGatewayService } from '../services/user-gateway-service';
-import { UserService } from '../services/user-service';
+import { UserListFilterParams, UserService, firstQueryString, userListQuerySchema } from '../services/user-service';
 import { createUserSchema, updateUserSchema } from '../validations/user.validation';
 
 @controller('/user', AuthenticationMiddleware, AdminAccessOnlyMiddleware) // [domain]/user
@@ -16,19 +16,48 @@ export class UserController {
         @inject(UserService) private UserService: UserService,
     ) { }
 
-    @httpGet('/') // [domain]/user/
+    @httpGet('/')
     public async getAllUser(req: Request, res: Response) {
         try {
-            const allUsers = await this.UserGatewayService.getAllUser();
+            const queryInput = await userListQuerySchema.validate(
+                {
+                    query_string: firstQueryString(req.query?.query_string),
+                    user_type: firstQueryString(req.query?.user_type),
+                },
+                { abortEarly: false, stripUnknown: true },
+            );
+            const filters: UserListFilterParams = {};
+            if (queryInput.query_string !== undefined && queryInput.query_string !== '') {
+                filters.query_string = queryInput.query_string;
+            }
+            if (queryInput.user_type !== undefined) {
+                filters.user_type = queryInput.user_type;
+            }
+
+            const allUsers = await this.UserGatewayService.getAllUser(filters);
+
+            if (!allUsers) {
+                return res.status(204).json({
+                    success: false,
+                    message: 'No users found',
+                });
+            }
             return res.status(200).json({
                 success: true,
                 message: 'Users fetched successfully',
                 data: allUsers
             });
-        } catch (error: any) {
+        } catch (error: unknown) {
+            if (error instanceof yup.ValidationError) {
+                return res.status(422).json({
+                    success: false,
+                    message: 'Validation failed',
+                    errors: error.inner.map((e) => ({ field: e.path, message: e.message })),
+                });
+            }
             return res.status(500).json({
                 success: false,
-                message: error?.message || 'Something went wrong',
+                message: error instanceof Error ? error.message : 'Something went wrong',
                 error,
             });
         }
@@ -69,7 +98,6 @@ export class UserController {
                 message: 'User Added Successfully',
                 data: createdUser,
             });
-
         } catch (error: unknown) {
             if (error instanceof yup.ValidationError) {
                 return res.status(422).json({

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { inject } from 'inversify';
 import { controller, httpDelete, httpGet, httpPost, httpPut } from 'inversify-express-utils';
+import mongoose from 'mongoose';
 import * as yup from 'yup';
 import { appConfig } from '../configs/app.config';
 import { AdminAccessOnlyMiddleware } from '../middleware/admin-access-only.middleware';
@@ -77,7 +78,7 @@ export class TodoController {
     @httpGet('/my-todos')
     public async getAllMyTodos(req: Request, res: Response) {
         try {
-            const sessionId = req.cookies?.[appConfig.acto_cookie] || req.headers.session;
+            const sessionId = req.cookies?.[appConfig.reto_cookie] || req.headers.session;
             const userData = await this.AuthGatewayService.getSessionEntry(sessionId);
             const userId = userData?.user?._id;
             const listFilterResult = this.todoService.parseTodoFilters(req);
@@ -106,7 +107,7 @@ export class TodoController {
             const todoId = req.params.id;
             const todo = await this.TodoGatewayService.getTodoById(todoId);
             if(!todo) {
-                return res.status(204).json({
+                return res.status(404).json({
                     success: false,
                     message: 'No todo with this id found.',
                     todo_id: todoId,
@@ -131,13 +132,21 @@ export class TodoController {
     @httpPost('/')
     public async createTodo(req: Request, res: Response) {
         try{
+            console.log(req.cookies);
             const todoData = await createTodoSchema.validate(req.body, { abortEarly: false, stripUnknown: true });
 
             // get the user data from the session
-            const sessionId = req.cookies?.[appConfig.acto_cookie] || req.headers.session;
+            const sessionId = req.cookies?.[appConfig.reto_cookie] || req.headers.session;
             const userData = await this.AuthGatewayService.getSessionEntry(sessionId);
             const userId = userData?.user?._id;
             const userRole = userData?.user?.user_type;
+
+            if (!userId) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Unauthorized: no valid session found.',
+                });
+            }
 
             const enrichedTodoData: Partial<ITodo> = { ...todoData, created_by: userId };
 
@@ -166,6 +175,14 @@ export class TodoController {
                     success: false,
                     message: 'Validation failed',
                     errors: error.inner.map((e) => ({ field: e.path, message: e.message })),
+                });
+            }
+
+            if (error instanceof mongoose.Error.ValidationError) {
+                return res.status(422).json({
+                    success: false,
+                    message: 'Validation failed',
+                    errors: Object.values(error.errors).map((e) => ({ field: e.path, message: e.message })),
                 });
             }
 
@@ -198,6 +215,14 @@ export class TodoController {
                     success: false,
                     message: 'Validation failed',
                     errors: error.inner.map((e) => ({ field: e.path, message: e.message })),
+                });
+            }
+
+            if (error instanceof mongoose.Error.ValidationError) {
+                return res.status(422).json({
+                    success: false,
+                    message: 'Validation failed',
+                    errors: Object.values(error.errors).map((e) => ({ field: e.path, message: e.message })),
                 });
             }
 

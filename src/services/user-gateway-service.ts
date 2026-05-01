@@ -1,13 +1,16 @@
 // 'injectable' is used to mark classes as able to be injected;
 // 'inject' is used for injecting dependencies into class constructors
-import { injectable } from 'inversify';
+import { inject, injectable } from 'inversify';
+import { UserListFilterParams, UserService } from './user-service';
 import { IUser, UserModel } from '../model/user-model';
-// import { UserModel, IUser } from
 
 @injectable()
 export class UserGatewayService {
-    public async getAllUser(): Promise<IUser[]> {
-        return UserModel.find();
+    constructor(@inject(UserService) private readonly userService: UserService) {}
+
+    public async getAllUser(filters?: UserListFilterParams | undefined): Promise<IUser[]> {
+        const filter = this.userService.buildUserListFilter(filters ?? {});
+        return UserModel.find(filter).sort({ created_at: -1 });
     }
 
     public async getUserById(userId: string): Promise<IUser | null> {
