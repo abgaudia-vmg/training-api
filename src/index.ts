@@ -19,7 +19,10 @@ serverInversify.setConfig((app) => {
     app.use(cookieParser());
     app.use(cors({
         credentials: true,
-        origin: true
+        origin: true,
+        // Some clients log preflight 204 as a "failed first call".
+        // Returning 200 avoids confusion while remaining standards-compliant.
+        optionsSuccessStatus: 200,
     }));
 });
 

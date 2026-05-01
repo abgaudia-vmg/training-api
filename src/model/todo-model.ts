@@ -28,12 +28,12 @@ export interface ITodo extends Document {
 export const todoSchema = new Schema<ITodo>(
     {
         created_at: {
-            required: true,
+            // required: true,
             type: Date,
             default: Date.now,
         },
         updated_at: {
-            required: true,
+            // required: true,
             type: Date,
             default: Date.now,
         },
