@@ -4,6 +4,7 @@ import { inject } from 'inversify';
 import { controller, httpGet, httpPost } from 'inversify-express-utils';
 import * as yup from 'yup';
 import { appConfig } from '../configs/app.config';
+import { AuthenticationMiddleware } from '../middleware/authentication.middleware';
 import { IUser } from '../model/user-model';
 import { AuthGatewayService } from '../services/auth-gateway-service';
 import { AuthService } from '../services/auth-service';
@@ -31,12 +32,16 @@ export class AuthController {
     @httpGet('/validate')
     public async validate(req: Request, res: Response): Promise<Response> {
         try {
+
             const accessToken = req.cookies?.[this.actoCookie] || this.AuthService.extractBearerToken(req.headers.authorization!);
             const sessionId = req.cookies?.[this.retoCookie] || req.headers.session;
             const validationResult = await this.AuthService.validateSession({
                 access_token: accessToken,
                 session_id: sessionId
             });
+
+            console.log('🚀 ~ auth.controller.ts:41 ~ AuthController ~ validate ~ validationResult:', validationResult);
+
             if(!validationResult.success) {
                 return res.status(validationResult.status).json({
                     success: false,
@@ -44,13 +49,14 @@ export class AuthController {
                     relogin: validationResult.relogin,
                 });
             }
-            res.cookie(this.actoCookie, validationResult.data.new_access_token, {
+
+            res.cookie(this.actoCookie, validationResult.data.access_token, {
                 httpOnly: true,
                 expires: this.accessTokenExp,
                 ...this.cookieOptions,
                 domain: this.domain,
             });
-            res.cookie(this.retoCookie, validationResult.data.new_session_entry.session_id, {
+            res.cookie(this.retoCookie, validationResult.data.session_id, {
                 httpOnly: true,
                 expires: this.refreshTokenExp,
                 ...this.cookieOptions,
@@ -60,10 +66,46 @@ export class AuthController {
                 success:true,
                 message: validationResult.message || 'Session is valid.',
                 data: {
+                    is_expired: validationResult.data.is_expired,
                     verified_token: validationResult.data.verified_token,
-                    session_entry: validationResult.data.new_session_entry,
-                    access_token: validationResult.data.new_access_token,
-                    session_id: validationResult.data.new_session_entry.session_id,
+                    // session_entry: validationResult.data.session_entry,
+                    // access_token: validationResult.data.access_token,
+                    // session_id: validationResult.data.session_entry.session_id,
+                },
+            });
+        } catch (error: any){
+            return res.status(500).json({
+                success:false,
+                message: error?.message || 'Something went wrong.',
+                error
+            });
+        }
+    }
+    @httpGet('/me', AuthenticationMiddleware)
+    public async me(req: Request, res: Response): Promise<Response> {
+        try {
+            const sessionId = req.cookies?.[this.retoCookie] || req.headers.session;
+
+            const sessionEntry = await this.AuthGatewayService.getSessionEntry(sessionId);
+            const user_id = sessionEntry?.user?._id;
+
+            const userData = await this.UserGatewayService.getUserById(user_id);
+            if(!userData) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'User not found.',
+                });
+            }
+            return res.status(200).json({
+                success:true,
+                message: 'User data fetched successfully.',
+                data: {
+                    email: userData.email,
+                    role: userData.user_type,
+                    user_id: userData._id,
+                    first_name: userData.first_name,
+                    last_name: userData.last_name,
+                    username: userData.username,
                 },
             });
         } catch (error: any){
@@ -102,7 +144,7 @@ export class AuthController {
                 ? await this.UserGatewayService.getUserByUsername(username)
                 : await this.UserGatewayService.getUserByEmail(email ?? '');
             if (!user) {
-                return res.status(204).json({ //change to 204
+                return res.status(404).json({
                     success: false,
                     message: 'User not found.',
                     data:user,
@@ -121,13 +163,13 @@ export class AuthController {
             });
             res.cookie(this.actoCookie, generated_access_token, {
                 httpOnly: true,
-                expires: this.accessTokenExp,
+                expires: appConfig.refreshTokenExp,
                 ...this.cookieOptions,
                 domain: this.domain,
             });
             res.cookie(this.retoCookie, generated_session.session_id, {
                 httpOnly: true,
-                expires: this.refreshTokenExp,
+                expires: appConfig.refreshTokenExp,
                 ...this.cookieOptions,
                 domain: this.domain,
             });

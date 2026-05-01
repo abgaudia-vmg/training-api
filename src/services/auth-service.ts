@@ -2,6 +2,7 @@ import { inject, injectable } from 'inversify';
 import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 import { AuthGatewayService } from './auth-gateway-service';
+import { appConfig } from '../configs/app.config';
 import { IUser } from '../model/user-model';
 
 @injectable()
@@ -21,7 +22,7 @@ export class AuthService {
 
     public isSessionExpired(expiration: Date): boolean {
         const expirationEpoch = new Date(expiration).getTime();
-        const nowEpoch = Date.now();
+        const nowEpoch = appConfig.getCurrentDate.getTime();
         return expirationEpoch < nowEpoch;
     }
 
@@ -51,7 +52,7 @@ export class AuthService {
     }
 
     public generateSignedJWT(tokenPayload: IJWTPayload){
-        return jwt.sign(tokenPayload, process.env.jwt_secret!, { expiresIn: '15m' });
+        return jwt.sign(tokenPayload, process.env.jwt_secret!, { expiresIn: appConfig.jwt_expiry });
     }
 
     public verifyJWT(accessToken: string){
@@ -66,15 +67,28 @@ export class AuthService {
         return jwtVerifyResult;
     }
 
-    public verifyJWTIgnoreExpiration(accessToken: string){
+    public verifyJWTv2(accessToken: string): Partial<IJWTPayload> & { is_expired?: boolean; is_invalid?: boolean } {
         const acto = accessToken;
-        let jwtVerifyResult = null;
+        const secret = process.env?.jwt_secret ?? '';
+
         try {
-            jwtVerifyResult = jwt.verify(acto, process.env.jwt_secret!, { ignoreExpiration: true });
-        } catch (error: any) {
-            return null;
+            const jwtVerifyResult = jwt.verify(acto, secret, {ignoreExpiration: true });
+            if (!jwtVerifyResult || typeof jwtVerifyResult === 'string') {
+                return { is_expired: true };
+            }
+            const payload = jwtVerifyResult as IJWTPayload;
+            return { ...payload, is_expired: false };
+        } catch(error: any) {
+            if(error.message === 'invalid token') {
+                return { is_invalid: true };
+            }
+
+            if(error.message === 'jwt expired') {
+                return { is_expired: true };
+            }
+            console.error('Error verifying JWT:', error.message);
+            return { is_invalid: true, is_expired: true };
         }
-        return jwtVerifyResult;
     }
 
     public generateSessionAndToken ({
@@ -92,7 +106,6 @@ export class AuthService {
         const tokenPayload = this.generateTokenPayload(userData);
         const generatedActo = this.generateSignedJWT(tokenPayload);
         const sessionId = this.generateSessionId();
-
         const generatedSessionPayload = this.generateSessionPayload({
             userData,
             sessionId,
@@ -105,27 +118,20 @@ export class AuthService {
         };
     }
 
-    public async validateSession({access_token, session_id}: IValidateSessionInput): Promise<TValidationSessionResult> {
-        if(!access_token || !session_id) {
-            return {
-                status: 401,
-                success: false,
-                message: 'Unauthorized: missing_token',
-            };
-        }
+    public async validateSession({access_token, session_id, returnJWTContent}: IValidateSessionInput): Promise<TValidationSessionResult> {
 
-        const sessionEntryCurrent = await this.AuthGatewayService.getSessionEntry(session_id);
-        const isSessionExpired = this.isSessionExpired(sessionEntryCurrent?.expiration as Date);
-        if(isSessionExpired) {
+        // GUARD CLAUSE: NO TOKEN OR SESSION ID
+        if(!session_id || !access_token) {
             return {
                 status: 401,
                 success: false,
-                message: 'Unauthorized: invalid_session',
+                message: 'Unauthorized: missing_token(s)',
                 relogin: true,
             };
         }
 
-        const userData = sessionEntryCurrent?.user as IUser;
+        const sessionEntryCurrent = await this.AuthGatewayService.getSessionEntry(session_id);
+        // GUARD CLAUSE: NO SESSION ENTRY
         if(!sessionEntryCurrent) {
             return {
                 status: 401,
@@ -135,44 +141,91 @@ export class AuthService {
             };
         }
 
-        const verifiedToken = this.verifyJWTIgnoreExpiration(access_token);
-        if(!verifiedToken) {
+        const expiration = sessionEntryCurrent.expiration;
+        const isSessionExpired = !expiration || this.isSessionExpired(expiration);
+        // GUARD CLAUSE: SESSION EXPIRED
+        if (isSessionExpired) {
+            return {
+                is_expired: isSessionExpired,
+                status: 401,
+                success: false,
+                message: 'Unauthorized: session_expired',
+                relogin: true,
+            };
+        }
+
+        const userData = sessionEntryCurrent.user as IUser;
+        const actoStatus = this.verifyJWTv2(access_token);
+
+        // GUARD CLAUSE: INVALID TOKEN
+        if(actoStatus.is_invalid) {
             return {
                 status: 401,
                 success: false,
-                message: 'Unauthorized: invalid_token',
+                message: 'Unauthorized: token_compromised',
                 relogin: true,
             };
         }
 
-        const sessionEntryNew = await this.AuthGatewayService.createSessionEntry({
-            //@ts-ignore - TODO: fix this
-            user: sessionEntryCurrent.user?._id,
-            session_id: session_id,
-            expiration: new Date(),
-        });
-        if(!sessionEntryNew) {
+        // CASE: TOKEN EXPIRED
+        if(actoStatus.is_expired) {
+            const newAccessToken = this.generateSignedJWT({
+                user_id: userData._id,
+                email: userData.email,
+                complete_name: `${userData.first_name} ${userData.last_name}`,
+                role: userData.user_type,
+            });
             return {
-                status: 500,
-                success: false,
-                message: 'Unauthorized: session_create_failed',
-                relogin: true,
+                status: 200,
+                success: true,
+                message: 'Token is valid, session is refreshed.',
+                data: {
+                    session_id: session_id,
+                    is_expired: isSessionExpired,
+                    verified_token: actoStatus,
+                    access_token: newAccessToken,
+                    session_entry: sessionEntryCurrent,
+                },
             };
         }
 
-        const { generated_access_token, generated_session } = this.generateSessionAndToken({
-            user_data: userData,
-            refresh_token_exp: sessionEntryCurrent.expiration,
-        });
+        // const { generated_access_token, generated_session } = this.generateSessionAndToken({
+        //     user_data: userData,
+        //     refresh_token_exp: appConfig.refreshTokenExp,
+        // });
+
+        //Force Expire Current Session
+        // await this.AuthGatewayService.updateSessionEntryBySessionId(session_id, {
+        //     expiration: appConfig.getCurrentDate,
+        // });
+
+        // Create New Session
+        // const updated = await this.AuthGatewayService.createSessionEntry(generated_session);
+        // if(!updated) {
+        //     return {
+        //         status: 500,
+        //         success: false,
+        //         message: 'Unauthorized: session_create_failed',
+        //         relogin: true,
+        //     };
+        // }
+
         return {
             success: true,
             status: 200,
             message: 'Token is valid, session is refreshed.',
             data: {
-                verified_token: verifiedToken,
-                new_session_entry: generated_session,
-                new_access_token: generated_access_token,
-                session_id: generated_session.session_id,
+                session_id: session_id,
+                is_expired: isSessionExpired,
+                verified_token: actoStatus,
+                session_entry: sessionEntryCurrent,
+                access_token: access_token,
+                // session_entry: generated_session || sessionEntryCurrent,
+                // access_token: generated_access_token || access_token,
+                // session_id: generated_session?.session_id || session_id,
+                // session_entry: sessionEntryCurrent,
+                // access_token: generated_access_token || access_token,
+                // session_id: generated_session?.session_id || session_id,
 
             }
         };
@@ -183,11 +236,36 @@ export class AuthService {
 export interface IValidateSessionInput {
     access_token: string;
     session_id: string;
+    returnJWTContent?: boolean;
 }
 
 export type TValidationSessionResult =
-  | { status: number, success: true; message: string; data: { verified_token: any; new_session_entry: ISessionPayload; new_access_token: string; session_id: string } }
-  | { status: number, success: false; message: 'Unauthorized: missing_token' | 'Unauthorized: invalid_session' | 'Unauthorized: invalid_token' | 'Unauthorized: session_create_failed', relogin?: boolean };
+  | {
+      status: number;
+      success: true;
+      message: string;
+      data: {
+          is_expired?: boolean;
+          is_invalid?: boolean;
+          verified_token: any;
+          session_entry?: ISessionPayload;
+          access_token?: string;
+          session_id: string;
+      };
+  }
+  | {
+      status: number;
+      success: false;
+      is_expired?: boolean;
+      message:
+        | 'Unauthorized: missing_token(s)'
+        | 'Unauthorized: invalid_session'
+        | 'Unauthorized: acto_expired'
+        | 'Unauthorized: token_compromised'
+        | 'Unauthorized: session_create_failed'
+        | 'Unauthorized: session_expired';
+      relogin?: boolean;
+  };
 
 export interface ISessionPayload {
     user: any;

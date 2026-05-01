@@ -18,4 +18,15 @@ export class AuthGatewayService {
     public async createSessionEntry(auth: any): Promise<IAuth> {
         return AuthModel.create(auth);
     }
+
+    public async updateSessionEntryBySessionId(
+        sessionId: string,
+        update: Partial<Pick<IAuth, 'session_id' | 'expiration'>>,
+    ): Promise<(IAuth & { user: IUser }) | null> {
+        return AuthModel.findOneAndUpdate(
+            { session_id: sessionId },
+            { $set: update },
+            { new: true },
+        ).populate({ path: 'user' });
+    }
 }
