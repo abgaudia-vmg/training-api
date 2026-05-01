@@ -4,7 +4,18 @@ import { NextFunction, Request, Response } from 'express';
 import { inject, injectable } from 'inversify';
 import { BaseMiddleware } from 'inversify-express-utils';
 import { appConfig } from '../configs/app.config';
-import { AuthService } from '../services/auth-service';
+import { AuthService, IJWTPayload } from '../services/auth-service';
+
+declare global {
+    namespace Express {
+        interface Request {
+            session?: {
+                verified_token: IJWTPayload;
+                session_id: string;
+            };
+        }
+    }
+}
 
 @injectable()
 export class AuthenticationMiddleware extends BaseMiddleware {
@@ -14,7 +25,7 @@ export class AuthenticationMiddleware extends BaseMiddleware {
         super();
     }
 
-    async handler(req: Request, res: Response, next: NextFunction) {
+    async handler(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
         try {
             const domain = appConfig.domain;
             const retoCookie = appConfig.reto_cookie;
@@ -26,36 +37,49 @@ export class AuthenticationMiddleware extends BaseMiddleware {
                     message: 'Unauthorized.',
                 });
             }
-            const accessToken = req.cookies?.[actoCookie] || this.AuthService.extractBearerToken(req.headers.authorization!);
-            const sessionId = req.cookies?.[retoCookie] || req.headers.session;
+            const accessToken =
+                req.cookies?.[actoCookie] ??
+                this.AuthService.extractBearerToken(req.headers.authorization ?? '');
+            const sessionId = req.cookies?.[retoCookie] ?? (req.headers.session as string | undefined);
             const validationResult = await this.AuthService.validateSession({
                 access_token: accessToken,
                 session_id: sessionId
             });
             if (!validationResult.success) {
+                const clearCookieOptions = {
+                    ...cookieOptions,
+                    domain: domain,
+                };
+                res.clearCookie(actoCookie, clearCookieOptions);
+                res.clearCookie(retoCookie, clearCookieOptions);
                 return res.status(validationResult.status).json({
                     success: false,
                     message: validationResult.message,
                     relogin: validationResult.relogin,
                 });
             }
-            res.cookie(actoCookie, validationResult.data.new_access_token, {
+            const newAccessToken = validationResult.data.access_token;
+            const newSessionId = validationResult.data.session_id;
+            res.cookie(actoCookie, newAccessToken, {
                 httpOnly: true,
                 expires: appConfig.accessTokenExp,
                 ...cookieOptions,
                 domain: domain,
             });
-            res.cookie(retoCookie, validationResult.data.new_session_entry.session_id, {
+            res.cookie(retoCookie, newSessionId, {
                 httpOnly: true,
                 expires: appConfig.refreshTokenExp,
                 ...cookieOptions,
                 domain: domain,
             });
+            // req.cookies[actoCookie] = newAccessToken;
+            // req.cookies[retoCookie] = newSessionId;
             next();
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Something went wrong.';
             return res.status(500).json({
                 success: false,
-                message: error?.message || 'Something went wrong.',
+                message,
                 error,
             });
         }
